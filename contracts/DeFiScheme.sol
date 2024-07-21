@@ -2,44 +2,51 @@
 pragma solidity ^0.8.20;
 
 contract DeFiScheme {
+
     mapping(address => uint256) public balances;
     mapping(address => uint256) public interestEarned;
 
-    event Invested(address indexed user, uint256 amount);
-    event Withdrawn(address indexed user, uint256 amount);
-    event InterestPaid(address indexed user, uint256 amount);
+    event Invested(address indexed user, uint256 amount, uint256 interest);
+    event WithdrawPart(address indexed user, uint256 amount);
+    event WithdrawAll(address user, uint256 allInvestment);
 
-    function invest() external payable {
-        require(msg.value > 0, "Must send ETH to invest");
-        balances[msg.sender] += msg.value;
+    function invest(uint256 _amount) external {
+        require(_amount > 0, "Cannot invest 0 token");
+        require(tx.origin != address(0), "Unauthorized!");
 
-        // Simulate interest earning: 10% of the invested amount for simplicity
-        uint256 interest = (msg.value * 10) / 100;
-        interestEarned[msg.sender] += interest;
+        //10% of the invested amount = interest earned
+        uint256 interest = (_amount * 10) / 100;
+        interestEarned[tx.origin] += interest;
 
-        emit Invested(msg.sender, msg.value);
+        balances[tx.origin] += (_amount + interest); //added the interest with invested amount
+
+        emit Invested(tx.origin, _amount, interest);
     }
 
-    function withdraw(uint256 amount) external {
-        require(balances[msg.sender] >= amount, "Insufficient balance");
-        balances[msg.sender] -= amount;
-        payable(msg.sender).transfer(amount);
+    function withdrawPart(uint256 amount) external returns (uint256) {
 
-        emit Withdrawn(msg.sender, amount);
+        require(balances[tx.origin] >= amount, "Insufficient balance");
+        balances[tx.origin] -= amount;
+
+        emit WithdrawPart(tx.origin, amount);
+
+        return amount;
     }
 
-    function getInterest(address user) external view returns (uint256) {
-        return interestEarned[user];
-    }
+    function withdrawAll() external returns(uint256) {
 
-    function withdrawInterest() external {
-        uint256 interest = interestEarned[msg.sender];
+        uint256 interest = interestEarned[tx.origin];
+        uint256 balance = balances[tx.origin];
         require(interest > 0, "No interest earned");
-        interestEarned[msg.sender] = 0;
-        payable(msg.sender).transfer(interest);
 
-        emit InterestPaid(msg.sender, interest);
+        interestEarned[tx.origin] = 0;
+        balances[tx.origin] = 0;
+
+        uint256 allInvestment = balance;
+
+        emit WithdrawAll(tx.origin, allInvestment);
+
+        return allInvestment;
     }
 
-    receive() external payable {}
 }
